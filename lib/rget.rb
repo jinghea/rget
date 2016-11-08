@@ -28,7 +28,9 @@ module RGet
         end
 	end
 
-	def download(url, options={})
+	def download(url, options={}, deep=6)
+
+		raise ArgumentError, 'Too many http redirect' if deep == 0
 
 		uri = URI(url)
 
@@ -38,21 +40,34 @@ module RGet
         http.use_ssl = true if options === {:use_ssl => true}
 		http.request_get("#{uri.path}?#{uri.query}") do |response|
 
-			length = response['Content-Length'].to_i
+			case response
 
-			progress_runner = ProgressRunner.new(length, {:title_part => true})
+			when Net::HTTPSuccess then
 
-            prepare_dest dest
-			File.open(dest, "wb") do |file|
+				length = response['Content-Length'].to_i
 
-				response.read_body do |segment|
-	               
-	               progress_runner.run(segment.length) do
-	               	  file.write(segment)
-	               end
-	               
-	            end
+				puts length
+
+				progress_runner = ProgressRunner.new(length, {:title_part => true})
+
+	            prepare_dest dest
+				File.open(dest, "wb") do |file|
+
+					response.read_body do |segment|
+		               
+		               progress_runner.run(segment.length) do
+		               	  file.write(segment)
+		               end
+		               
+		            end
+			    end
+
+		    when Net::HTTPRedirection then download(response['location'], options, deep-1)
+
+		    else
+               raise ArgumentError, 'Http response error'
 		    end
+
 		end
 
 	end

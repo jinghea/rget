@@ -1,37 +1,9 @@
 require_relative '../lib/rget'
+require 'net/http'
 
 class FakeClass
 end
 
-class FakeHttp
-
-
-   def initialize(fake_segment)
-   	@fake_segment = fake_segment
-   end
-
-   def request_get(anything)
-   	 yield(FakeResponse.new(@fake_segment))
-   end
-end
-
-class FakeResponse < Hash
-
-	def initialize(fake_segment)
-		self['Content-Length'] = 100
-		@fake_segment = fake_segment
-	end
-
-	def read_body
-		yield(@fake_segment)
-	end
-end
-
-class FakeSegment
-	def length
-		10
-	end
-end
 
 describe "calc_dest" do
 
@@ -80,14 +52,20 @@ describe "download" do
   
 
     it "download with a url" do
-        url = "http://abc.com/qq.mp3"
 
+    	url = "http://abc.com/qq.mp3"
+
+    	fake_segment = "abcdefghijkl"
+
+
+        stub_request(:any, url).
+           to_return(body: fake_segment, status: 200,
+           headers: { 'Content-Length' => 100 })
+
+        
         allow(File).to receive(:directory?).and_return(true)
 
-        fake_segment = FakeSegment.new
         
-        allow(Net::HTTP).to receive(:new).and_return(FakeHttp.new(fake_segment))
-
         fake_file = double("FakeFile")
 
         expect(fake_file).to receive(:write).with(fake_segment)
